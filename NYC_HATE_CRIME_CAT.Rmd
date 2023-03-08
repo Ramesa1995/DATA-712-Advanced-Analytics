@@ -1,0 +1,172 @@
+---
+title: "Analysis of Bias-Motivated Hate Crimes in New York City in 2022"
+author: "Rameasa Arna"
+output: word_document
+date: "2023-02-07"
+---
+
+# Executive Summary
+According to the data in 2022, there were 665 incidents that happened which were motivated by sexual orientation, gender, race, or religion. This blog will provide statistics on hate crimes by categories that have place in New York City in 2022.It was discovered in this research that the top two bias categories are Race and Religion, where Asian people are the most affected according to race and Jewish are most affected when it comes to religion.  
+
+# Introduction 
+Hate crimes are crimes against people, property, or society that are motivated, in whole or in part, by the offender's bias towards a particular race, religion, handicap, sexual orientation, or ethnicity/national origin.This report provides valuable insights into the trends, patterns, and motives behind hate crimes in the city, with a focus on identifying and addressing the specific biases that are driving these crimes. The report will help law enforcement organizations and other interested parties in identifying trends and patterns in incidents, which can help them more effectively deploy resources and stop further criminal activity.
+
+# Set up Directory
+```{r setup session, include=FALSE}
+rm(list=ls())       #CLEAR THE ENVIRONMENT OF R 
+gc()
+
+directory <- "/Users/rameasaarna/Desktop/NYPD Hate Crime"
+setwd(directory)  
+set.seed(100)   #TO GET THE Same number  evrytime for random number.
+
+```
+
+# Data and Methods 
+The analysis uses NYPD Hate Crimes  provided by the New York City Police Department (NYPD) and and distributed by [NYC Open Data](https://data.cityofnewyork.us/Public-Safety/NYPD-Hate-Crimes/bqiq-cu78). Key attributes from the data are cleaned, analyzed, and shown using R. This data included information on hate crimes that occurred in NYC from 2019 through 2022, but as the study's focus is exclusively on hate crimes that occurred in 2022 by offense category and main bias, the data was restricted to the year of 2022, and we will only utilize 5 of the data's 14 variables. They are "Full.Complaint.ID," "Complaint.Year.Number," "Month.Number," "County," "Bias.Motive.Description," and "Offense.Category." We will utilize descriptive analysis to conduct data analysis.
+
+# Load Packages  Data  
+```{r import and clean data, include = F}
+# Load Packages
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(knitr)
+
+# Load Data
+data.orig <- read.csv("/Users/rameasaarna/Desktop/NYPD Hate Crime/NYPD_Hate_Crimes.csv")
+
+# Create a derivative set to manipulate
+data <- data.orig
+
+# Examine the variable names and top few rows in the set:
+names(data)
+head(data)
+
+#Checking if there is some missing values.
+colSums(is.na(data))
+
+#checking county names
+unique(data$County)
+
+# Filter the data only for 2022
+nypd_hate_crime_2022 =  data%>%
+  select( Full.Complaint.ID , Complaint.Year.Number, Month.Number,County,Bias.Motive.Description,  Offense.Category )%>%
+  rename(year = Complaint.Year.Number, Month = Month.Number)%>%
+  filter(year == 2022)
+```
+# Findings 
+## The statistics of hate crimes by category
+```{r, echo=FALSE}
+
+hate_crime_cat_percentage <- nypd_hate_crime_2022 %>%
+  group_by(Offense.Category) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+# View the results
+kable(hate_crime_cat_percentage)                
+```
+
+## Visualization of hate crimes by category occurred in 2022 
+```{r, echo = FALSE}
+ggplot(hate_crime_cat_percentage, aes(x=reorder(Offense.Category, -Percentage), y=Percentage, fill=Offense.Category)) +
+  geom_bar(stat="identity") +
+  xlab("Categories") +
+  ylab("Percentage of Hate Crimes") +
+  ggtitle("Percentage of Hate Crime Incidents by Category in 2022") + 
+  coord_flip() +
+  theme_classic() +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, by = 20)) +
+geom_text(aes(label = paste0(round(Percentage, 2), "%")), position = position_dodge(width = 0.9),hjust = -0.2, vjust = 1)+
+   guides(fill=FALSE)
+```
+According to the table and graph, there were 665 reported incidents of hate crimes in the year 2022. The data shows a clear pattern of the motivations behind these incidents, with religion and religious practices being the most targeted factor at 48.72 percent. Race and color followed close behind, accounting for 23.91 percent of incidents. Sexual orientation was the motivation behind 14.44 percent of hate crimes, while ethnicity, national origin, or ancestry were targeted in 10.68 percent of incidents. Gender was the least targeted factor, accounting for only 2.26 percent of the incidents.
+
+Given the high incidence of hate crimes motivated by religion and race, it is imperative to delve deeper into the data to gain a clearer picture of the situation. By analyzing which specific religious groups and races were most targeted, we can gain a better understanding of the underlying issues and take appropriate measures to address them. Such information could aid authorities in taking the necessary steps to prevent future hate crimes and promote equality and justice for all.
+
+## Bias motive : Religion 
+```{r, echo=FALSE}
+nypd_hate_crime_religion = nypd_hate_crime_2022%>%
+  filter(Offense.Category == "Religion/Religious Practice")
+
+nypd_hate_crime_religion$Bias.Motive.Description[!(nypd_hate_crime_religion$Bias.Motive.Description %in% c("ANTI-JEWISH" , "ANTI-MUSLIM", "ANTI-CATHOLIC"))] = "other"
+hate_crime_religion_percentage <- nypd_hate_crime_religion %>%
+  group_by(Bias.Motive.Description) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+  
+
+# View the results
+kable(hate_crime_religion_percentage)  
+
+#hate_crime_religion_percentage
+```
+
+
+
+## Hate crime in NYC in 2022 by Religion
+```{r, echo=FALSE}
+ggplot(hate_crime_religion_percentage, aes(x=reorder(Bias.Motive.Description, -Percentage), y=Percentage, fill=Bias.Motive.Description)) +
+  geom_bar(stat="identity", width = 0.7) +
+  xlab("Religion") +
+  ylab("Percentage of Hate Crimes") +
+  ggtitle("Percentage of Hate Crime Incidents by Religion in NYC in 2022") +
+  theme_minimal() +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, by = 10)) +
+  geom_text(aes(label = paste0(round(Percentage, 2), "%")), 
+            position = position_dodge(width = 0.9), hjust = .50, vjust = -0.5, size = 3.5) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 9)) +
+  theme(plot.title = element_text(hjust = 0.5, size = 11, face = "bold")) +
+  theme(axis.title = element_text(size = 9, face = "bold")) +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette = "Dark2")
+```
+This bar plot provides a visual representation of the proportion of hate crimes against various religions in New York City in 2022. The x-axis lists the different religions, while the y-axis indicates the percentage of hate crimes committed against each religion.
+
+The data shows that Anti-Jewish crimes made up a significant portion of the anti-religion bias category, accounting for 85.19 percent. Meanwhile, Anti-Muslim crimes were relatively low, accounting for only 5.86 percent. The "Other" category, which includes Anti-Buddhist, Anti-Eastern Orthodox, Anti-Hindu, Anti-Other Religion, Anti-Protestant, Anti-Jehovahs Witness, Anti-Religious practice generally, and Anti-Sikh, accounted for 5.25 percent of hate crimes.
+
+## Bias motive : Race/Color
+```{r, echo=FALSE}
+nypd_hate_crime_race= nypd_hate_crime_2022%>%
+  filter(Offense.Category == "Race/Color")
+
+
+hate_crime_race_percentage <- nypd_hate_crime_race %>%
+  group_by(Bias.Motive.Description) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+# View the results
+kable(hate_crime_race_percentage)  
+
+#hate_crime_race_percentage
+```
+In New York City, there were 665 incidents. Of those, 159 were racially or ethnically motivated.
+
+## Hate crime in NYC in 2022 by Race
+```{r, echo=FALSE}
+ggplot(hate_crime_race_percentage, aes(x=reorder(Bias.Motive.Description, -Percentage), y=Percentage, fill=Bias.Motive.Description)) +
+  geom_bar(stat="identity", width = 0.7) +
+  xlab("Race/color") +
+  ylab("Percentage of Hate Crimes") +
+  ggtitle("Percentage of Hate Crime Incidents by Race/Color in NYC in 2022") +
+  theme_minimal() +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, by = 10)) +
+  geom_text(aes(label = paste0(round(Percentage, 2), "%")), 
+            position = position_dodge(width = 0.9), hjust = .50, vjust = -0.5, size = 3.5) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 9)) +
+  theme(plot.title = element_text(hjust = 0.5, size = 11, face = "bold")) +
+  theme(axis.title = element_text(size = 9, face = "bold")) +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette = "Accent")
+```
+
+This bar plot provides a visual representation of the proportion of hate crimes committed based on race and color in New York City in 2022. The x-axis lists the different races, while the y-axis indicates the percentage of hate crimes committed against each race.
+
+The data shows that Anti-Asian bias was the most common form of anti-race/color bias, accounting for 57.23 percent of incidents. Anti-Black bias was also high, accounting for 33.96 percent of incidents. Anti-White bias was relatively low, accounting for only 8.81 percent of incidents 
+
+# Discussion
+The data from 2022 on hate crimes in New York City reveals a clear pattern of the causes of these attacks, with race and color coming in second at 23.91 percent, followed by religion and religious practices at 48.72 percent. 85.19 percent of anti-religion bias crimes were against Jews, making up the biggest share of this group, while 57.23 percent of anti-race/color crimes were against Asians. Understanding the causes and patterns of hate crimes can help law enforcement stop new attacks and advance equality and justice for all.
+
+
