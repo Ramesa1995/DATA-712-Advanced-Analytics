@@ -1,0 +1,303 @@
+---
+title: "Analyzing the Impact of Population and Car Crashes on Noise Complaints in NYC"
+author: "Rameasa Arna"
+output:
+  word_document: default
+  html_document: default
+date: "2023-02-28"
+---
+
+# Preview 
+
+This study uses a linear regression model to examine the relationship between the number of vehicle-related noise complaints in different zip codes and two variables: population and crash count. The dataset used contains information on 181 zip codes, including their population,crash_count,injured_count, num_of_complaints_noise_vehicle, killed_count and injured_ped_count. The model's findings demonstrate that the number of complaints is statistically influenced by  the population. In particular, the model discovered a positive correlation between population and noise complaints of vehicle, whereas a negative correlation between crash count and complaints was revealed. However, the corrected R-squared value of 0.09137 indicating that approximately 9% of the variance in the number of noise complaints related to vehicles can be explained by population and crash counts. This model can still be helpful in identifying zip codes that are more likely to receive vehicle-related complaints based on their population and crash frequency. Such information could be used to inform targeted interventions to address this issue in affected areas.
+
+# Background
+
+This linear regression model is relevant to local governments and policymakers who are interested in understanding the factors that contribute noise complaints related to vehicles in their jurisdictions. By identifying the factors that contribute to higher complaint rates, this model can inform targeted interventions to address this issue. For example, local governments could use the model's findings to prioritize resources and implement measures to reduce noise and improve road safety in zip codes with a high population and crash count. Additionally, residents and community organizations could use the model's predictions to advocate for increased attention and resources towards addressing noise and vehicle-related issues in their neighborhoods. Overall, this model provides a valuable tool for stakeholders who are working to improve the quality of life in their communities.
+
+# Data
+
+The analysis uses three datasets to build the model. The first one is NYPD 311 Service Requests from 2010 to Present provided by 311, DoITT and distributed by [NYC Open Data](https://data.cityofnewyork.us/Social-Services/311-Service-Requests-from-2010-to-Present/erm2-nwe9). This dataset contains information about service requests made to the city's 311 service for various issues, including noise complaints related to vehicles . The dataset was filtered to include only noise complaints related to vehicles and was aggregated by zip code to count the number of complaints per zip code.
+
+The second dataset used Motor Vehicle Collisions - Crashes  provided by the New York City Police Department (NYPD) and and distributed by [NYC Open Data](https://data.cityofnewyork.us/Public-Safety/Motor-Vehicle-Collisions-Crashes/h9gi-nx95). This dataset contains information about motor vehicle collisions that have been reported to the New York City Police Department. The dataset was aggregated by zip code to count the number of collisions, as well as the number of people injured or killed, for each zip code. Both of the dataset has included information from 2019 through 2022.
+
+The third dataset used was New York Zip Codes by Population, which was obtained from (https://www.newyork-demographics.com/zip_codes_by_population). This dataset contains information about the population of each zip code in New York City.
+
+All three datasets were merged together based on the zip code field to create a new dataset that contained information about the population , number of noise complaints related to vehicles, and number of motor vehicle collisions, number of people killed, number of pedestrian killed and number of people injured. for each zip code. The merged dataset was then used for further analysis to investigate the relationship between these variables and to build a model for estimating number of noise complaints  based on population  and crash_count , as follow:
+
+                                                 num_of_complaints_noise_vehicle = b0 + b1*population + b2*crash_count
+
+OLS stands for Ordinary Least Squares, and it is a statistical method used for modeling the relationship between a dependent variable and one or more independent variables. In an OLS model, the goal is to find the line of best fit that minimizes the sum of the squared errors between the predicted values and the actual values.The OLS model provides a way to estimate the coefficients (slopes) of the regression line, which describe the relationship between the dependent variable and each independent variable. These coefficients can be interpreted as the expected change in the dependent variable for a one-unit increase in the corresponding independent variable, holding all other independent variables constant. In this study, multiple linear regression used to build the model.Multiple linear regression is used to estimate the relationship between two or more independent variables and one dependent variable.The “b” values are called the regression weights and they measure the association between the predictor variable and the outcome. b1  can be interpreted as the average effect on "num_of_complaints_noise_vehicle" of a one unit increase in “population”, holding all other predictors fixed and same for the crash_count.
+
+# Set up Directory
+```{r setup session, include=FALSE}
+rm(list=ls())       #CLEAR THE ENVIRONMENT OF R 
+gc()
+
+directory <- "/Users/rameasaarna/Desktop/assignment 2 "
+setwd(directory)  
+set.seed(100)   #TO GET THE Same number  evrytime for random number.
+
+```
+
+# Loading all 3 dataset
+```{r, echo=FALSE}
+# Load Packages
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(knitr)
+
+#motor_vehical
+motor_vehical = read.csv("/Users/rameasaarna/Desktop/assignment 2 /Motor_Vehicle_Collisions_-_Crashes.csv")
+
+#change mtor vehicle 
+colnames(motor_vehical )[4] <- "zip_code"
+
+#Motor_vahicle_aggre = aggregate(VARIABLE ~ zipcode, STATISTIC)
+
+```
+
+# CLEANING MOTOR_Vehicle_Collision DATA AND SAVING AS vehicle_collision_agg.csv (No need to run anymore as i export a datset from this and use that to mergev)
+
+```{r, echo=FALSE}
+
+# Subset the dataset to only include relevant columns
+motor_vehical <- motor_vehical %>%
+  select(zip_code, CRASH.DATE, NUMBER.OF.PERSONS.INJURED, NUMBER.OF.PERSONS.KILLED,BOROUGH,NUMBER.OF.PEDESTRIANS.KILLED)
+
+# Convert the crash_date column to a Date format
+motor_vehical$crash_date <- as.Date(motor_vehical$CRASH.DATE, format = "%m/%d/%Y")
+
+# Subset the dataset to only include data from the last 5 years
+motor_vehical <- motor_vehical %>%
+  filter(CRASH.DATE >= as.Date("01-01-2019")) 
+
+# Remove any rows with missing data or invalid zip codes
+motor_vehical <- motor_vehical %>%
+  filter(!is.na(zip_code)) %>%
+  filter(zip_code != "N/A")
+
+# Aggregate the dataset by zip code, calculating the total number of crashes, injuries, and fatalities for each zip code
+vehicle_collision_agg <- motor_vehical %>%
+  group_by(zip_code) %>%
+  summarize(crash_count = n(),
+            injured_count = sum(NUMBER.OF.PERSONS.INJURED, na.rm = TRUE),
+            killed_count = sum(NUMBER.OF.PERSONS.KILLED, na.rm = TRUE),
+            injured_ped_count = sum(NUMBER.OF.PEDESTRIANS.KILLED, na.rm = TRUE))
+
+# Rename the columns
+names(vehicle_collision_agg) <- c("zip_code", "crash_count", "injured_count", "killed_count","injured_ped_count")
+
+# Save the cleaned and aggregated dataset as a CSV file
+# write.csv(vehicle_collision_agg, "vehicle_collision_agg_2019.csv", row.names = FALSE)
+
+```
+
+# Cleaning the NYC_311 and saving as  Modified_nyc_311_2019.csv (No need to run anymore as i export a datset from this and use that to merge )
+```{r, echo=FALSE}
+#nyc_service req
+#Nyc_311 = read.csv("/Users/rameasaarna/Desktop/assignment 2 /311_Service_Requests_from_2010_to_Present.csv")
+
+#change colname
+#colnames(Nyc_311)[9] <- "zip_code"
+
+#unique(Nyc_311$Complaint.Type)
+
+# Filter to only include the last 5 years
+#NYC_311_data <- Nyc_311 %>%
+  #filter(as.numeric(format(as.Date(Created.Date, "%m/%d/%Y"), "%Y")) >= 2019)
+
+## choose the cols 
+#Modified_nyc_311 = NYC_311_data%>%
+   #select(Created.Date, Complaint.Type,zip_code,City,Borough)%>%
+   # filter(!is.na(zip_code)) %>%
+    #filter(zip_code != "N/A")
+
+#unique(Nyc_311$zip_code)
+# Aggregate the data by zipcode and get a count of the number of requests
+#NYC_311_agg_data <- NYC_311_data %>%
+  #group_by(zip_code) %>%
+  #summarize(num_of_complaints_noise_vehicle = n())
+
+
+
+# Save the aggregated data as a CSV file (did not use this)
+#write.csv(NYC_311_agg_data, "311_requests_noise_vehicle_by_zipcode.csv", row.names = FALSE)
+
+#saving the cleaned modified_nyc_311 (use this to merge)
+#write.csv(Modified_nyc_311, "Modified_nyc_311_2019.csv", row.names = FALSE)
+```
+
+
+
+# Getting the Population Table by Zip
+```{r, echo=FALSE}
+library(rvest)
+
+url <- "https://www.newyork-demographics.com/zip_codes_by_population"
+
+webpage <- read_html(url)
+
+# extract table nodes
+table_nodes <- html_nodes(webpage, "table")[[1]]
+
+# convert table nodes to data frame
+population_by_zip <- html_table(table_nodes, fill = TRUE)
+
+# change column name
+colnames(population_by_zip)[2] <- "zip_code"
+
+# convert zip_code column to integer
+#population_by_zip$zip_code <- as.integer(population_by_zip$zip_code)
+
+# print unique values in Population column
+#unique(population_by_zip$Population)
+
+# remove commas from population column
+population_by_zip$population <- gsub(",", "", population_by_zip$Population)
+
+# convert population column to integer
+population_by_zip$population <- as.integer(population_by_zip$population)
+
+# remove original Population column
+population_by_zip <- population_by_zip[-which(names(population_by_zip)=="Population")]
+
+
+```
+
+
+#Merge Three DataSet
+```{r, echo=FALSE}
+agg_nyc = read.csv("/Users/rameasaarna/Desktop/assignment 2 /Modified_nyc_311_2019.csv")
+
+# drop rows with missing values
+agg_nyc_clean <- na.omit(agg_nyc)
+
+
+nyc_311_noise_vehicle = agg_nyc_clean %>%
+  group_by(zip_code)%>%
+  filter (Complaint.Type == "Noise - Vehicle")%>%
+  summarize(num_of_complaints_noise_vehicle = n())
+
+  
+merged_data_311<- merge(population_by_zip, nyc_311_noise_vehicle, by = "zip_code")
+Motor_vehicle_agrre = read.csv("/Users/rameasaarna/Desktop/assignment 2 /vehicle_collision_agg_2019.csv")
+
+
+
+merged_data = merge(merged_data_311,Motor_vehicle_agrre, by ="zip_code")
+
+merged_data <- na.omit(merged_data)
+
+#colnames(merged_data)
+
+#unique(agg_nyc$Complaint.Type)
+```
+
+
+# Descriptive Statistics
+The variables used in the model include population, num_of_complaints_noise_vehicle, crash_count.The  two predictor variables: population and crash_count. Population represents the population of the zip code area, while crash_count represents the number of car accidents reported in the zip code area. The response variable is the number of noise complaints related to vehicles reported in the zip code area. Let's see the statistics of these variables.
+
+## 1. Response Variable : 
+The response variable is Number of noise complain related to vehicle.The variable represents the number of noise complaints related to vehicles by zipcode since 2019 till now. In this part, we will describe the variable to understand what the measurements mean, and how to interpret their distribution.
+```{r}
+
+summary(merged_data$num_of_complaints_noise_vehicle)
+
+```
+
+```{r, echo = FALSE}
+ggplot(merged_data, aes(x = num_of_complaints_noise_vehicle)) + 
+  geom_histogram(fill = "#69b3a2", color = "black", binwidth = 10) +
+  ggtitle("Number of Noise Complaints by Zip Code") +
+  labs(x = "Number of Complaints", y = "Count") +
+  theme_minimal()
+
+```
+
+The "num_of_complaints_noise_vehicle" variable represents the number of noise complaints related to vehicles by zipcode since 2019 till now. The distribution of this variable ranges from 1 to 21565 with a mean of 1543, indicating that the majority of zip codes had a relatively low number of noise complaints related to vehicles. The first quartile (Q1) value of 290 and the third quartile (Q3) value of 1779 indicate that 25% of zip codes had 290 or fewer noise complaints related to vehicles, while 75% of zip codes had 1779 or fewer noise complaints related to vehicles. Moreover, The histogram shows that the majority of the complaints fall within the range of 0 to 5000, with very few complaints above that range.
+
+
+
+## 2. predictor variables : 
+One of the predictor varibles is "crush_count". The variable is a measure of the number of crashes that occurred in a particular zip code during the study period.In this section, we will disscuss about what the measurements mean, and how to interpret their distribution.
+
+```{r}
+summary(merged_data$crash_count)
+```
+
+
+
+```{r, echo = FALSE}
+library(ggplot2)
+
+ggplot(data = merged_data, aes(x = crash_count)) + 
+  geom_histogram(binwidth = 100) + 
+  ggtitle("Distribution of Number of Crashes") +
+  xlab("Number of Crashes") + 
+  ylab("Count")
+
+```
+The variable "crash_count" is a measure of the number of crashes that occurred in a particular zip code during the study period.The descriptive statistics reveal that the minimum number of crashes in a zip code is 48, while the maximum is 10292. The mean number of crashes is 2969, which is higher than the median of 2742. This suggests that the distribution is skewed to the right, with some zip codes having a much higher number of crashes than the rest of the dataset. The first quartile (Q1) value of 1614 and the third quartile (Q3) value of 4109 indicate that 25% of zip codes had 1614 or fewer crashes, while 75% of zip codes had 4109 or fewer crashes. Overall, these statistics suggest that the number of crashes varies widely across zip codes, and that there are some areas with a higher incidence of crashes than others.
+
+## 3. predictor variables : 
+Other predictor variable is Population. It represents the total population in a particular zip code. Now we will look at their distribution.  
+```{r}
+
+# Descriptive statistics
+summary(merged_data$population)
+
+hist(merged_data$population)
+```
+
+The distribution of this variable ranges from 222 to 116469 with a mean of 48522, indicating that the population sizes of zip codes in the dataset vary widely. The first quartile (Q1) value of 27575 and the third quartile (Q3) value of 67252 indicate that 25% of zip codes had a population size of 27575 or lower, while 75% of zip codes had a population size of 67252 or lower.This information can be useful in identifying any relationships between population size and the number of noise complaints related to vehicles in a particular zip code.
+
+# Model
+# Fit the multiple linear regression model
+
+```{r}
+model1 <- lm(num_of_complaints_noise_vehicle ~  population + crash_count, data = merged_data)
+```
+
+
+```{r}
+summary(model1)
+```
+
+The regression analysis revealed that population and crash count had different effects on the number of noise complaints related to vehicles.
+
+Population had a statistically significant effect on the number of noise complaints related to vehicles, with a coefficient estimate of 0.03009 and a p-value of 0.000632. This means that they are positively related and for every one-unit increase in population, there was a 0.03 increase in noise complaints, holding the crash count constant.
+
+In contrast, crash count did not have a statistically significant effect on the number of noise complaints related to vehicles, with a coefficient estimate of -0.05877 and a p-value of 0.645926. This indicates that changes in crash count were not associated with changes in the number of noise complaints related to vehicles.
+
+The final equation of the regression model is:
+
+                                     num_of_complaints_noise_vehicle = 257.22100 + 0.03009 * population - 0.05877 * crash_count
+
+Where the intercept is 257.22100 and the coefficients for population and crash count are 0.03009 and -0.05877, respectively. This equation can be used to predict the expected number of noise complaints related to vehicles based on population and crash count values. However, it is important to keep in mind that the model may not capture all the factors that influence the number of noise complaints and should be used with caution.
+
+The adjusted R-squared value of the model was 0.09137, indicating that approximately 9% of the variation in the number of noise complaints could be explained by population and crash count. The multiple R-squared value of the model was 0.1015, indicating that the model explained only a small proportion of the variance in the number of noise complaints.
+
+Overall, the results suggest that population is a more important factor to consider when predicting the number of noise complaints related to vehicles. However, it is important to note that the model has some limitations and may not capture all the factors that influence the number of noise complaints.
+
+
+# Conclusions
+Our regression model provided valuable insights into the factors influencing the number of noise complaints related to vehicles. The results of our analysis showed that population had a statistically significant effect on the number of noise complaints related to vehicles, while crash count did not.
+
+The finding that population is a significant predictor of noise complaints suggests that noise-reducing interventions targeted at densely populated neighborhoods may be effective in mitigating noise pollution. Policymakers and city officials can use this information to prioritize noise mitigation efforts in areas with high population density.
+
+However, our model's failure to find a significant relationship between crash count and noise complaints indicates that focusing solely on crash-prone areas may not necessarily lead to reductions in noise pollution. Therefore, a more comprehensive approach that considers other factors that contribute to noise pollution, such as traffic volume, road design, and vehicle type, may be necessary.
+
+In conclusion, our findings can inform noise mitigation efforts and help policymakers and city officials make data-driven decisions to improve residents' quality of life. However, it is important to note that our model has some limitations and should be used with caution. Future studies can build on our findings by considering additional factors that contribute to noise pollution and by collecting more detailed data on noise complaints and their causes.
+
+
+
+
+
+
+
+
+
+
+
