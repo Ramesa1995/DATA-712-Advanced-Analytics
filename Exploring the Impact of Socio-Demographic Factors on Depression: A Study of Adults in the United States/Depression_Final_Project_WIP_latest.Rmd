@@ -1,0 +1,441 @@
+---
+title: "Exploring the Impact of Socio-Demographic Factors on Depression: A Study of Adults in the United States"
+author: "Rameasa Arna"
+date: "2023-05-15"
+output:
+  word_document: default
+  html_document: default
+---
+
+
+# Abstract
+
+This paper examines the influence of sociodemographic factors on depression among adults in the United States. The likelihood of self-reported depression is examined in connection to gender, marital status, educational attainment, age, and healthcare access. The analysis is supported by information from the National Health Interview Survey (NHIS) 2021, which offers data on a sample of US adults. To investigate the connections between depression and the demographic parameters, descriptive analysis and statistical tests are performed. The findings show a strong relationship between depression and age, marital status, education level, gender, and access to healthcare. The results help to better understand the risk factors for depression and can guide the creation of focused treatments to enhance adult mental health outcomes in the US.
+
+# Introduction:
+
+Millions of individuals all around the world, including those in the United States, are affected by the common mental health disorder known as depression. It may significantly disrupt daily functioning, negatively affect one's quality of life, and even trigger suicidal thoughts. The association between these factors and depression is not fully understood, despite the fact that there are known risk factors for depression include marital status, education level, age, gender, and access to healthcare. The purpose of this study is to investigate how factors such as gender, marital status, educational attainment, age, and healthcare access affect the likelihood of self-reported depression among individuals in the United States.
+
+This relationship is investigated using data from the National Health Interview Survey (NHIS) 2021. The results can be used to identify potential risk factors and guide the development of measures for enhancing adult mental health outcomes in the US. 
+
+The findings of this study may be helpful for individuals managing their depressed symptoms, mental health practitioners, policymakers, and those developing targeted treatments for avoiding and treating depression.
+
+# Research Question:
+
+How does age, gender, marital status, education level, and access to healthcare impact the likelihood of self-reported depression among adults in the United States?
+
+# Background:
+
+Depression is a common mental health condition that adversely affects people all over the world, especially those living in the United States. It is distinguished by enduring unhappiness, losing interest or pleasure, and having trouble functioning in several facets of life. Depression is the primary cause of disability worldwide, according to the World Health Organization (WHO), placing a heavy strain on individuals, families, and societies.
+
+Depression affects around 17 million persons in the US each year, which is a significant public health concern (Centers for Disease Control and Prevention, 2021). The condition is linked to significant functional limitations, a decline in quality of life, and an elevated risk of suicide. Understanding the causes of depression is crucial for the development of effective prevention and treatment strategies.
+
+Potential risk factors for depression include marital status, education level, age, gender and access to healthcare. For instance, earlier studies have indicated that people who are single, have less education, and have limited access to healthcare may be more likely to have depression (Eaton et al., 2012; Eaton et al., 2008; McLaughlin et al., 2011). Moreover, age has also been identified as a significant factor in depression, with certain age groups being more vulnerable to the condition (Kessler et al., 2003). However, the relationship between these variables and depression is complex and requires further investigation.
+
+Given that these factors may have an effect on depression, it is crucial to thoroughly analyze their relationship. By examining the effects of marital status, education level, age, gender, and access to healthcare on the likelihood of self-reported depression among individuals in the United States, this research intends to add to the body of existing literature. The results of this study may help in the creation of focused therapies meant to lessen the prevalence of depression in the populace.
+
+
+# Data
+
+The analysis uses data from [National Health Interview Survey](https://www.cdc.gov/nchs/nhis/2021nhis.htm), which is a cross-sectional household interview survey conducted annually by the Centers for Disease Control and Prevention's National Center for Health Statistics. The NHIS provides information on a wide range of health topics, including mental health, and is designed to be representative of the non-institutionalized civilian population of the United States. Moreover, The NHIS data are publicly available and can be accessed from the National Center for Health Statistics website.
+
+The dataset used in this analysis is the NHIS 2021 Adult Sample File, which contains information on a nationally representative sample of adults aged 18 years and older. The sample size for the 2021 survey was 29,482 adults. To conduct the analysis we have used the subset of the dataset which contains the AGEP_A, Gender,DEPRESSED, Marital_Status, Education, Health_Coverage, PPSU, PSTRAT, WTFA_A variables. Marital_Status includes categories such as Living with a partner, Married, Never Married, Separated, Divorced and Widowed. Education includes categories such as Some High School, High School Graduate, Some College , Associate degree, Bachelors degree, Graduate degree. Health_Coverage includes categories such as Covered and Not Covered. Gender includes categories Male and Female. DEPRESSED is a binary variable indicating whether or not the individual has been diagnosed with depression.After re-coding was preformed for the categorical and continuous variables 4% of the total observations were lost due to cleaning resulting in a final sample of 28233 observations.
+
+We have used the he survey package in R to conduct our analysis. This package allows for the incorporation of survey weights and clustering in the analysis, which are necessary to obtain accurate estimates of population parameters from complex survey data.
+
+
+         
+```{r setup session, include=FALSE}
+rm(list=ls())       #CLEAR THE ENVIRONMENT OF R 
+gc()
+
+directory <- "/Users/rameasaarna/Desktop/final_proj_data712"
+setwd(directory)  
+set.seed(100)   #TO GET THE Same number  every time for random number.
+```
+
+# Load the  dataset
+```{r, echo=FALSE}
+# Load Packages
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(knitr)
+library(readxl)
+library(survey)
+library(formattable)
+
+
+NHIS = read_csv("/Users/rameasaarna/Desktop/final_proj_data712/adult21.csv")
+
+#head(NHIS)
+
+```
+
+#Recode 
+
+```{r, echo = FALSE}
+
+# Recode variables
+
+NHIS_data_Labeled = NHIS %>%
+  mutate(Education = ifelse(EDUCP_A >= 1 & EDUCP_A <= 2, "Some High School",
+                      ifelse(EDUCP_A >= 3 & EDUCP_A <= 4, "High School Graduate",
+                      ifelse(EDUCP_A == 5, "Some College",
+                      ifelse(EDUCP_A >= 6 & EDUCP_A <= 7, "Associate degree",
+                      ifelse(EDUCP_A == 8 , "Bachelors degree",
+                      ifelse(EDUCP_A >= 9 & EDUCP_A <= 10, "Graduate degree", NA)))))),
+         Gender = ifelse(SEX_A == 1, "Male",
+                  ifelse(SEX_A == 2, "Female", NA)), 
+         DEPRESSED = ifelse(DEPEV_A == 1, "Yes",
+                     ifelse(DEPEV_A == 2, "No" ,NA)),
+         Health_Coverage = ifelse(NOTCOV_A == 1, "Not Covered",
+                           ifelse(NOTCOV_A == 2, "Covered",NA)),
+         Marital_Status = ifelse(MARSTAT_A >= 1 & MARSTAT_A <= 3, "Married",
+                      ifelse(MARSTAT_A == 4, "Widowed",
+                      ifelse(MARSTAT_A == 5, "Divorced",
+                      ifelse(MARSTAT_A == 6 , "Separated",
+                      ifelse(MARSTAT_A == 7 , "Never Married",
+                      ifelse(MARSTAT_A == 8 , "Living with a partner", NA)))))))
+
+# Convert factor variables to their respective levels
+
+NHIS_data_Labeled <- NHIS_data_Labeled %>%
+  mutate(Health_Coverage = as.factor(Health_Coverage),
+         Education = as.factor(Education),
+         Gender = as.factor(Gender),
+         DEPRESSED = as.factor(DEPRESSED),
+         Marital_Status = as.factor(Marital_Status))
+# Add levels to education and put them in order
+
+
+# Subset the data based on variables of interest
+
+NHIS_data_Labeled_subset <- NHIS_data_Labeled %>% 
+  select(DEPRESSED,Gender, Marital_Status, Education, Health_Coverage, PPSU, PSTRAT, WTFA_A, AGEP_A)
+
+NHIS_data_Labeled_subset <- na.omit(NHIS_data_Labeled_subset)
+
+NHIS_data_Labeled_subset$Marital_Status <- factor(NHIS_data_Labeled_subset$Marital_Status, levels=c('Married', 'Divorced', 'Living with a partner', 'Never Married', 'Separated', 'Widowed'))
+
+NHIS_data_Labeled_subset$Education <- factor(NHIS_data_Labeled_subset$Education, levels=c('Some High School', 'High School Graduate', 'Some College', 'Associate degree', 'Bachelors degree', 'Graduate degree'))
+
+#summary(NHIS_data_Labeled_subset$DEPRESSED)
+
+# 100 - round((nrow(NHIS_data_Labeled)/nrow(NHIS_data_Labeled_subset)*100))
+
+```
+
+
+```{r, echo = FALSE}
+# create survey design object
+nhis.design <- svydesign(
+  id = ~PPSU, 
+  strata = ~PSTRAT, 
+  weights = ~WTFA_A, 
+  data = NHIS_data_Labeled_subset,
+  nest = TRUE
+)
+
+summary(nhis.design)
+
+```
+
+
+
+# Descriptive Analysis
+
+In this section, we present the descriptive statistics of the variables and provide insights into the relationships between depression and the demographic factors. The analysis is based on the dataset obtained from the National Health Interview Survey (NHIS) 2021, which represents a nationally representative sample of adults in the United States.
+
+To better understand the distribution of the variables, descriptive statistics were calculated and are presented in the table below.
+
+```{r, echo = FALSE}
+# Compute descriptive statistics for each variable
+svymean(~Marital_Status, design = nhis.design)
+svymean(~Education, design = nhis.design)
+svymean(~Health_Coverage, design = nhis.design)
+svymean(~DEPRESSED, design = nhis.design)
+svymean(~ Gender,design = nhis.design )
+svymean(~ AGEP_A,design = nhis.design )
+
+
+```
+From the table, it is revealed that the majority of individuals in our sample are married (52%) and have health coverage(90%), indicating the prevalence of stable relationships and access to healthcare services among the participants. Furthermore, high school graduation is the most common educational attainment (28%), suggesting that a significant portion of the population has completed their secondary education.
+
+In terms of gender representation, our sample slightly favors females (52%) over males, pointing to a slight gender imbalance within the study population. This observation underscores the importance of considering gender-specific factors when addressing mental health issues.
+
+Notably, approximately 17% of individuals in our sample have been diagnosed with depression. This finding highlights the considerable burden of depression within the adult population, emphasizing the need for effective prevention, diagnosis, and treatment strategies.
+
+These descriptive findings provide a comprehensive overview of the demographic characteristics and prevalence of depression among adults in the United States.They serve as a foundation for further analysis. where we will conduct  T- test and chi-square test to determine the statistical significance of the relationships between depression and other variables. Additionally, we will present the results using bar graphs to visually display the proportional frequencies and enhance the understanding of these relationships.
+
+A boxplot is a standardized way of displaying the distribution of data based on a five number summary (“minimum”, first quartile [Q1], median, third quartile [Q3] and “maximum”). A box plot analysis is being done below to show the depression status by age distribution:
+
+```{r age_depression_bi_variate, echo = FALSE}
+
+svyby(~AGEP_A, ~DEPRESSED, design = nhis.design, svymean)
+# svyby(~AGEP_A, ~DEPRESSED, design = nhis.design, svyquantile, c(.25,.5,.75))
+#svyboxplot(AGEP_A~DEPRESSED,nhis.design,all.outliers=TRUE)
+svyboxplot(AGEP_A ~ DEPRESSED, nhis.design, all.outliers = TRUE, main = "Boxplot of Age by Depression Status")
+
+svyttest(AGEP_A ~ DEPRESSED, design = nhis.design)
+
+```
+
+According to our boxplot, for individuals who indicated they were depressed, the median age was found to be 46, with a lower 25th quantile value of 31 and an upper 75th quantile value of 61. In comparison, for those who reported they were not depressed, the median age was slightly higher at 48, with a lower 25th quantile value of 32 and an upper 75th quantile value of 63. These findings suggest that there might be a slight difference in age distribution between the two groups.
+
+Furthermore, we calculated the mean age for each group, which was found to be 49 years old for those who reported not being depressed and 47 years old for those who reported being depressed. This information provides a numerical summary of the average age within each group, indicating a slight variation between them.
+
+To determine the statistical significance of the relationship between age and depression, we conducted a t-test. The t-test result indicated a statistically significant association between age and depression, further supporting the notion that age may play a role in the likelihood of experiencing depression.
+
+```{r graphs, echo=FALSE}
+
+categorical_graphs_styling <- list(
+  theme_bw(),
+  theme(
+    title = element_text(face = "bold"), 
+    axis.title = element_text(face = "bold"), 
+    axis.text = element_text(face = "bold")
+    ),
+  guides(
+    fill = guide_legend(
+      override.aes = aes(label = "")
+      )
+    ),
+  scale_fill_brewer(palette = "Blues"), 
+  labs(caption = "Data from NHIS")
+)
+
+# Depression by Marital Status
+
+depressed_married_prop_one <- data.frame(prop.table(svytable(~ DEPRESSED + Marital_Status, design = nhis.design), 2) * 100) %>%
+  rename("Percent" = Freq) %>%
+  ggplot(aes(x = DEPRESSED, y = Percent, fill = Marital_Status)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "DEPRESSED", y = "Percent", title = "Depression by Marital Status", caption = "Data from NHIS") +
+  theme_minimal() +
+  geom_label(aes(label = round(Percent), group = Marital_Status), position = position_dodge(width = 1), hjust = -0.5, size = 4) +
+  ylim(0, 100) +
+  facet_wrap(~ Marital_Status) +
+  coord_flip() +
+  categorical_graphs_styling +
+  theme(legend.position = "none", axis.title.y = element_text(vjust = 3.5), axis.title.x = element_text(vjust = -3.5))
+
+
+#Depression by Health Coverage
+
+depressed_heath_prop_one <- data.frame(prop.table(svytable(~Health_Coverage + DEPRESSED, design = nhis.design), 1)*100)%>%
+    rename(
+      "Percent" = Freq
+      )%>%
+    ggplot(
+      aes(
+        x = DEPRESSED, 
+        y = Percent, 
+        fill = Health_Coverage
+        )
+      ) + 
+    geom_bar(
+      stat = "identity", 
+      position = "dodge"
+      )+
+    labs( 
+      x = "Depressed",
+      y = "Percent",
+      title = "Depression by Health Care Coverage",
+      caption = "Data from NHIS"
+      )+ 
+    theme_minimal()+ 
+      geom_label(
+      aes(x = DEPRESSED, 
+          y = Percent, 
+          label = round(Percent), 
+          group = Health_Coverage),
+      position = position_dodge(width = 1), 
+      hjust = -0.5, size = 4
+    )+
+  ylim(0, 100)+
+  facet_wrap(~Health_Coverage)+
+  coord_flip()+
+    categorical_graphs_styling+ 
+    theme(legend.position = "none", 
+          axis.title.y = element_text(vjust=3.5), 
+          axis.title.x = element_text(vjust=-3.5))
+
+
+
+# Depression by Education level
+
+depressed_Education_prop_one <- data.frame(prop.table(svytable(~Education + DEPRESSED, design = nhis.design), 1)*100)%>%
+    rename(
+      "Percent" = Freq
+      )%>%
+    ggplot(
+      aes(
+        x = DEPRESSED, 
+        y = Percent, 
+        fill = Education
+        )
+      ) + 
+    geom_bar(
+      stat = "identity", 
+      position = "dodge"
+      )+
+    labs( 
+      x = "Depressed",
+      y = "Percent",
+      title = "Depression by Education Level",
+      caption = "Data from NHIS"
+      )+ 
+    theme_minimal()+ 
+      geom_label(
+      aes(x = DEPRESSED, 
+          y = Percent, 
+          label = round(Percent), 
+          group = Education),
+      position = position_dodge(width = 1), 
+      hjust = -0.5, size = 4
+    )+
+  ylim(0, 100)+
+  facet_wrap(~Education)+
+  coord_flip()+
+    categorical_graphs_styling+ 
+    theme(legend.position = "none", 
+          axis.title.y = element_text(vjust=3.5), 
+          axis.title.x = element_text(vjust=-3.5))
+
+#Depression by Gender
+
+depressed_Gender_prop_one <- data.frame(prop.table(svytable(~Gender + DEPRESSED, design = nhis.design), 1)*100)%>%
+    rename(
+      "Percent" = Freq
+      )%>%
+    ggplot(
+      aes(
+        x = DEPRESSED, 
+        y = Percent, 
+        fill = Gender
+        )
+      ) + 
+    geom_bar(
+      stat = "identity", 
+      position = "dodge"
+      )+
+    labs( 
+      x = "Depressed",
+      y = "Percent",
+      title = "Depression by Gender",
+      caption = "Data from NHIS"
+      )+ 
+    theme_minimal()+ 
+      geom_label(
+      aes(x = DEPRESSED, 
+          y = Percent, 
+          label = round(Percent), 
+          group = Gender),
+      position = position_dodge(width = 1), 
+      hjust = -0.5, size = 4
+    )+
+  ylim(0, 100)+
+  facet_wrap(~Gender)+
+  coord_flip()+
+    categorical_graphs_styling+ 
+    theme(legend.position = "none", 
+          axis.title.y = element_text(vjust=3.5), 
+          axis.title.x = element_text(vjust=-3.5))
+
+```
+
+To identify potential connections and shed light on the delicate interplay between depression and education , the following figure explores the relationship between them and offers insightful information on how educational opportunities and levels of achievement may affect mental health outcomes.
+
+```{r education_depression_bi}
+depressed_Education_prop_one
+svychisq(~DEPRESSED + Education, design = nhis.design)
+```
+
+According to this figure, people with some college degrees have the most depression, which is 21%. Similarly, 20% of people with an associate degree are affected by depression. People with bachelor's degree and graduate degree are less affected by depression compared to other categories which is 15%. In that case people having more degrees are less affected by depression. 
+
+To determine the statistical significance of the relationship between Education and depression, we conducted a chi-square test. The chi-square test result indicated a statistically significant association between education and depression
+
+Similarly there’s some claim for having depression due to marital status. To make light into this following graph is being made: 
+
+```{r marital_depression_bi}
+depressed_married_prop_one
+svychisq(~DEPRESSED + Marital_Status, design = nhis.design)
+
+```
+
+According to this graph, Separated and divorced people have the most depression, which is  25%, whereas married people are less affected by depression which is 15%. 21% of people who are living with a partner are affected by depression. Similarly 19% of widowed and never married people are affected by depression. It seems married people are less likely to have depression. 
+
+To determine the statistical significance of the relationship between marital status and depression, we conducted a chi-square test. The chi-square test result indicated a statistically significant association between marital status and depression.
+
+There are some concerns on gender in terms of having depression. Following figure shows some information on it: 
+
+```{r gender_depressed_bi}
+depressed_Gender_prop_one
+svychisq(~DEPRESSED + Gender, design = nhis.design)
+```
+
+According to this figure, the female population is more likely to have depression. 22% of the female population are affected by depression whereas 13% of the male population are affected by depression.
+
+To determine the statistical significance of the relationship between gender and depression, we conducted a chi-square test. The chi-square test result indicated a statistically significant association between gender and depression.
+
+Additionally, following figure shows the relationship between health coverage and depression:
+
+```{r health_care_depressed_bi}
+depressed_heath_prop_one
+svychisq(~DEPRESSED + Health_Coverage, design = nhis.design)
+```
+
+According to this figure 18% of health care coverage people are affected by depression whereas 14% of non covered health care are depressed. That shows people with health care coverage are more likely to have depression.
+
+To determine the statistical significance of the relationship between health coverage and depression, we conducted a chi-square test. The chi-square test result indicated a statistically significant association between gender and depression.
+
+# Model
+
+In the conducted analysis, a logistic regression model was used to examine the relationship between various factors and the likelihood of experiencing depression. The data was analyzed using the svyglm function in R, taking into account the survey design with stratification, clustering, and weighting.
+
+```{r, echo = FALSE}
+
+# Fit the logistic regression model
+model <- svyglm(DEPRESSED ~ AGEP_A +  Marital_Status + Education + Health_Coverage + Gender, design = nhis.design, family = binomial())
+# Ask professor if you can have numeric in your glm which otherwise only contains 
+# categorical. If so, how to interpret. 
+
+# View model summary
+summary(model)
+
+#100 * (exp(-0.62) -1 )
+#(exp(-0.62) -1 )
+#exp(model$coefficients)-1
+
+```
+
+The analysis revealed some interesting insights regarding the impact of different variables on depression. When considering the reference categories as "Some High School" for education, "Female" for gender, "Health Care Coverage" for health coverage, and "Married" for marital status, several noteworthy findings emerged.To calculate the percentage change in odds, we use the formula 100 * [exp(model$coefficients) - 1].
+
+Firstly, age was found to play a significant role. For each additional year in age, the log-odds of experiencing depression decreased by 0.57%, suggesting a potential decrease in the likelihood of depression as individuals grow older.
+
+Examining marital status, several categories demonstrated associations with depression. Compared to married individuals,those who were divorced, living with a partner, never married or separated exhibited increased odds of being depressed by 80.39%, 41.91%, 24.62% and  93.47%, respectively. On the other hand, being widowed showed a relatively smaller but still significant increase in the log-odds of depression by 20.92%.
+
+Education level also played a role in depression. Compared to individuals with only some high school education,We found that individuals with a Bachelor's degree or a Graduate degree experienced reduced odds of being depressed by 25.17% and 23.66%, respectively. In contrast, High School Graduate, Some College and Associate Degree did not have a statistically significant effect on depression.
+
+Furthermore, the presence of health care coverage was found to be relevant. Those without health coverage faced decreased odds of being depressed by 34.29%.This suggests that having health care coverage may have a protective effect against depression.
+
+Lastly, we encountered the enigmatic realm of gender. Here, a fascinating revelation emerged. Being male was associated with an impressive 46.20% reduction in the odds of experiencing depression. It seems that gender plays a role in protecting against the shadows of depression.
+
+Overall, this analysis offers valuable insights into the factors associated with depression. By understanding these associations, healthcare professionals, policymakers, and researchers can further explore and develop targeted interventions, support systems, and policies to address and mitigate the risk of depression among different populations.
+
+# Conclusion
+
+In conclusion, this study investigated how socio-demographic characteristics affect depression in American people. The results demonstrated how complicatedly different factors relate to depression. The likelihood of depression was shown to be correlated with age, with older people having slightly lower rates of depression. Marital status was also a key predictor, with divorced and separated people more likely to experience depression than married people. Education level revealed a pattern, with higher levels of education being linked to lower incidence of depression. It was discovered that gender played a significant role, with women more likely than men to experience depression. Additionally, higher incidences of depression were linked to having access to healthcare coverage. These results improve our knowledge of the risk factors for depression and can help develop policies and interventions that are specifically designed to improve the mental health of the adult population in the United States.
+
+# Reference 
+
+1. Centers for Disease Control and Prevention. (2021). Major depression. Retrieved from https://www.cdc.gov/mentalhealth/learn/index.htm
+
+2. Eaton, W. W., Anthony, J. C., Gallo, J., Cai, G., Tien, A., Romanoski, A., & Lyketsos, C. (2008). Natural history of diagnostic interview schedule/DSM-IV major depression. The British Journal of Psychiatry, 173(3), 219-226.
+
+3. Eaton, W. W., Muntaner, C., Smith, C., Tien, A., & Ybarra, M. (2012). Marital status and depression: the importance of coping resources. Social Psychiatry and Psychiatric Epidemiology, 47(12), 1979-1987.
+
+4. McLaughlin, K. A., Green, J. G., Gruber, M. J., Sampson, N. A., Zaslavsky, A. M., & Kessler, R. C. (2011). Childhood adversities and adult psychiatric disorders in the national comorbidity survey replication II: associations with persistence of DSM-IV disorders. Archives of General Psychiatry, 68(1), 87-95.
+
+5. Kessler, R. C., Berglund, P., Demler, O., Jin, R., Koretz, D., Merikangas, K. R., ... & Wang, P. S. (2003). The epidemiology of major depressive disorder: Results from the National Comorbidity Survey Replication (NCS-R). JAMA, 289(23), 3095-3105.
